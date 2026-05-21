@@ -1,4 +1,4 @@
-# Quarkus RAG System
+# Minimal RAG System
 
 A containerized Retrieval-Augmented Generation (RAG) system built with Quarkus, Qdrant, and Llama.cpp for intelligent document-based Q&A.
 
