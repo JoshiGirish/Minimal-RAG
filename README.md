@@ -6,13 +6,6 @@ A containerized Retrieval-Augmented Generation (RAG) system built with Quarkus, 
 
 ![RAG Architecture](docs/minimal-rag.png)
 
-## System Requirements
-
-- Docker & Docker Compose
-- Java 17+ (for local development)
-- At least 8GB RAM
-- 50GB+ free disk space (for models)
-
 ## Quick Start
 
 ```bash
