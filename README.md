@@ -1,0 +1,29 @@
+# Quarkus RAG System
+
+A containerized Retrieval-Augmented Generation (RAG) system built with Quarkus, Qdrant, and Llama.cpp for intelligent document-based Q&A.
+
+## Architecture Overview
+
+![RAG Architecture](docs/minimal-rag.png)
+
+## System Requirements
+
+- Docker & Docker Compose
+- Java 17+ (for local development)
+- At least 8GB RAM
+- 50GB+ free disk space (for models)
+
+## Quick Start
+
+```bash
+docker-compose up -d
+```
+
+This starts:
+- Qdrant (vector store)
+- LangGraph (orchestrator)
+- OpenWebUI (chat interface)
+- Quarkus API (RAG backend)
+
+You need to launch locally:
+- Llama.cpp (embedding & inference)
