@@ -82,8 +82,12 @@
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.qdrant</groupId>
+            <artifactId>client</artifactId>
+            <version>1.17.0</version>
+        </dependency>
     </dependencies>
-
     <build>
         <plugins>
             <plugin>
