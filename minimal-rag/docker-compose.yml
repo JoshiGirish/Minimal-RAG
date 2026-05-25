@@ -1,0 +1,89 @@
+version: '3.8'
+
+networks:
+  rag-network:
+    driver: bridge
+    name: ${RAG_NETWORK}
+
+services:
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    networks:
+      - rag-network
+    ports:
+      - "${OPENWEBUI_PORT}:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ${OPENWEBUI_DATA_DIR}:/app/backend/data
+    restart: unless-stopped
+    user: root
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    networks:
+      - rag-network
+    ports:
+      - "${QDRANT_HTTP_PORT}:6333"
+      - "${QDRANT_GRPC_PORT}:6334"
+    volumes:
+      - ${QDRANT_DATA_DIR}:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+
+  langgraph:
+    image: python:3.12-slim
+    working_dir: /app
+    container_name: langgraph
+    networks:
+      - rag-network
+    ports:
+      - "${LANGGRAPH_PORT}:8000"
+      - "${LANGGRAPH_DEBUG_PORT}:5678"
+    environment:
+      - OPENAI_API_KEY="XXX"
+    command: >
+      sh -c "
+      pip install --no-cache-dir -r requirements.txt
+      python -m debugpy
+      --listen 0.0.0.0:5678
+      -m uvicorn
+      app:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      "
+    volumes:
+      - ./app:/app
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  quarkus-app:
+    image: registry.access.redhat.com/ubi9/openjdk-17-runtime:1.24
+    working_dir: /deployments
+    container_name: quarkus-app
+    networks:
+      - rag-network
+    ports:
+      - "${QUARKUS_APP_PORT}:8080"
+    user: "185"
+    entrypoint: 
+      - /opt/jboss/container/java/run/run-java.sh
+    environment:
+      LANGUAGE: en_US:en
+      JAVA_OPTS_APPEND: >
+        -Dquarkus.http.host=0.0.0.0
+        -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+      JAVA_APP_JAR: /deployments/quarkus-run.jar
+    volumes:
+      - ${QUARKUS_APP_DIR}:/deployments
+    depends_on:
+      - qdrant
+      - langgraph
+    restart: unless-stopped
