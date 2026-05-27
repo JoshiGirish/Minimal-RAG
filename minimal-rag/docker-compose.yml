@@ -19,7 +19,6 @@ services:
     volumes:
       - ${OPENWEBUI_DATA_DIR}:/app/backend/data
     restart: unless-stopped
-    user: root
 
   qdrant:
     image: qdrant/qdrant:latest
