@@ -1,3 +1,5 @@
+package com.dev.rag;
+
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONObject;
 import java.io.BufferedReader;
@@ -6,8 +8,24 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+/**
+ * Client for generating embeddings from the embedding service.
+ */
+@ApplicationScoped
 public class EmbeddingsGeneratorClient {
 
+    @Inject
+    private ExternalServicesConfig config;
+
+    /**
+     * Generate embedding for the given input text.
+     *
+     * @param input The text to embed
+     * @return Float array representing the embedding vector
+     */
     public float[] generateEmbedding(String input) {
         try {
             // 1. Prepare the JSON payload using Jettison
@@ -15,8 +33,9 @@ public class EmbeddingsGeneratorClient {
             jsonPayload.put("input", input);
             jsonPayload.put("model", "nomic-embed-text");
 
-            // 2. Create connection
-            URL url = new URL("http://localhost:8081/v1/embeddings");
+            // 2. Build URL from configuration
+            String embeddingUrl = config.buildEmbeddingUrl();
+            URL url = new URL(embeddingUrl + "/v1/embeddings");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 
             // 3. Configure connection for POST
@@ -50,11 +69,11 @@ public class EmbeddingsGeneratorClient {
                     System.out.println(response.toString());
                     
                     JSONObject jsonResponse = new JSONObject(response.toString());
-                    if(jsonResponse.has("data")){
-                        JSONArray dataArray =  jsonResponse.getJSONArray("data");
-                        for(int i=0; i<dataArray.length(); i++){
+                    if (jsonResponse.has("data")) {
+                        JSONArray dataArray = jsonResponse.getJSONArray("data");
+                        for (int i = 0; i < dataArray.length(); i++) {
                             JSONObject jsonObj = dataArray.getJSONObject(i);
-                            if(jsonObj.has("embedding")){
+                            if (jsonObj.has("embedding")) {
                                 JSONArray embeddingArray = jsonObj.getJSONArray("embedding");
                                 float[] vector = new float[embeddingArray.length()];
                                 for (int j = 0; j < embeddingArray.length(); j++) {
@@ -65,8 +84,7 @@ public class EmbeddingsGeneratorClient {
                         }
                     }
                 }
-            } 
-            else {
+            } else {
                 try (BufferedReader br = new BufferedReader(
                         new InputStreamReader(conn.getErrorStream(), "utf-8"))) {
                     StringBuilder error = new StringBuilder();

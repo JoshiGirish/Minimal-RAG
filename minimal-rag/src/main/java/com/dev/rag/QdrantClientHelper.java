@@ -1,3 +1,5 @@
+package com.dev.rag;
+
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.QdrantGrpcClient;
 import io.qdrant.client.grpc.Collections.Distance;
@@ -201,3 +203,4 @@ public class QdrantClientHelper {
         return false;
     }
 }
+

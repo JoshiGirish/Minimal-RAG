@@ -1,3 +1,5 @@
+package com.dev.rag;
+
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,10 +14,17 @@ import io.qdrant.client.QdrantGrpcClient;
 import io.qdrant.client.grpc.Collections.Distance;
 import io.qdrant.client.grpc.Points.PointStruct;
 import io.qdrant.client.grpc.Points.UpdateResult;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
+@ApplicationScoped
 public class EmbeddingVectorIngestor {
 
 	private static String collectionName = "docDB";
+	private static EmbeddingVectorIngestor ingestorClient;
+
+	@Inject
+	EmbeddingsGeneratorClient embeddingGeneratorClient;
 
 	/**
 	 * Represents a chunk of document content with metadata.
@@ -45,9 +54,7 @@ public class EmbeddingVectorIngestor {
 		return Math.abs(input.hashCode());
 	}
 
-	public static void main(String[] args) {
-
-		EmbeddingsGeneratorClient embeddingGeneratorClient = new EmbeddingsGeneratorClient();
+	public void ingestDocuments() {
 
 		try {
 
@@ -58,7 +65,7 @@ public class EmbeddingVectorIngestor {
 			TikaDocumentParser parser = new TikaDocumentParser();
 
 			List<TikaDocumentParser.DocumentParseResult> docs = parser.parseDirectory(
-					"/data/dev/ws/temp/quarkus-rag/quarkus-rag/src/main/java");
+					"/deployments/ingest");
 
 			// ----------------------------------------
 			// Create Qdrant client ONCE
@@ -66,7 +73,7 @@ public class EmbeddingVectorIngestor {
 
 			try (QdrantClient vectorDBClient = new QdrantClient(
 					QdrantGrpcClient.newBuilder(
-							"localhost",
+							"qdrant",
 							6334,
 							false).build())) {
 
@@ -174,7 +181,6 @@ public class EmbeddingVectorIngestor {
 			}
 
 		} catch (Exception e) {
-
 			e.printStackTrace();
 		}
 	}

@@ -74,6 +74,7 @@ services:
       JAVA_APP_JAR: /deployments/quarkus-run.jar
     volumes:
       - ${QUARKUS_APP_DIR}:/deployments:Z
+      - ./ingest:/deployments/ingest:Z
     depends_on:
       - qdrant
       - langgraph

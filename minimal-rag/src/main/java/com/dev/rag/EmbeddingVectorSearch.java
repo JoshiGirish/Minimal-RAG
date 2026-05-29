@@ -1,3 +1,5 @@
+package com.dev.rag;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -5,12 +7,15 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.QdrantGrpcClient;
 import io.qdrant.client.WithPayloadSelectorFactory;
 import io.qdrant.client.grpc.Points.QueryPoints;
 import io.qdrant.client.grpc.Points.ScoredPoint;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -27,9 +32,15 @@ public class EmbeddingVectorSearch {
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    // =========================================================
-    // STREAMING CHAT ENDPOINT
-    // =========================================================
+    @Inject
+    EmbeddingVectorIngestor client;
+
+    @Inject
+    private ExternalServicesConfig config;
+
+    @Inject
+    EmbeddingsGeneratorClient emb;
+
     @POST
     @Path("/chat/completions")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -55,10 +66,11 @@ public class EmbeddingVectorSearch {
             System.out.println(prompt);
 
             // -----------------------------
-            // 3. Call llama.cpp (streaming)
+            // 3. Call llama.cpp (streaming) - NOW CONFIGURED
             // -----------------------------
+            String llmUrl = config.buildLlmUrl();
             HttpRequest httpRequest = HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:8080/v1/chat/completions"))
+                    .uri(URI.create(llmUrl + "/v1/chat/completions"))
                     .header("Content-Type", "application/json")
                     .header("Accept", "text/event-stream")
                     .POST(HttpRequest.BodyPublishers.ofString(prompt))
@@ -86,9 +98,6 @@ public class EmbeddingVectorSearch {
         }
     }
 
-    // =========================================================
-    // SSE STREAMING FIX (IMPORTANT PART)
-    // =========================================================
     private void streamSse(java.io.InputStream input, SseEventSink sink, Sse sse)
             throws Exception {
 
@@ -118,16 +127,21 @@ public class EmbeddingVectorSearch {
         }
     }
 
-    // =========================================================
-    // RAG PIPELINE (Qdrant)
-    // =========================================================
     private String buildContext(String input) throws Exception {
 
-        EmbeddingsGeneratorClient emb = new EmbeddingsGeneratorClient();
         float[] vector = emb.generateEmbedding(input);
 
+        // Build Qdrant URL from configuration
+        boolean useTls = config.isQdrantUseTls();
+
+        URI uri = URI.create(config.buildQdrantUrl());
+        ManagedChannel channel = ManagedChannelBuilder
+        .forAddress(uri.getHost(), uri.getPort())
+        .usePlaintext()
+        .build();
+
         QdrantClient client = new QdrantClient(
-                QdrantGrpcClient.newBuilder("localhost", 6334, false).build());
+                QdrantGrpcClient.newBuilder(channel, useTls).build());
 
         List<ScoredPoint> results = client.queryAsync(
                 QueryPoints.newBuilder()
@@ -157,9 +171,6 @@ public class EmbeddingVectorSearch {
         return context.toString();
     }
 
-    // =========================================================
-    // PROMPT BUILDER (IMPORTANT FOR RAG QUALITY)
-    // =========================================================
     private String buildPrompt(
             String context,
             String userInput) throws Exception {
@@ -178,18 +189,12 @@ public class EmbeddingVectorSearch {
         return MAPPER.writeValueAsString(payload);
     }
 
-    // =========================================================
-    // HELPERS
-    // =========================================================
     private String extractUserInput(Map<String, Object> request) {
         List<Map<String, String>> messages = (List<Map<String, String>>) request.get("messages");
 
         return messages.get(messages.size() - 1).get("content");
     }
 
-    // =========================================================
-    // MODELS (unchanged)
-    // =========================================================
     @GET
     @Path("/models")
     @Produces(MediaType.APPLICATION_JSON)
@@ -203,5 +208,14 @@ public class EmbeddingVectorSearch {
                                 "object", "model",
                                 "created", 0,
                                 "owned_by", "openai")));
+    }
+
+    @GET
+    @Path("/ingest")
+    @Produces(MediaType.APPLICATION_JSON)
+    public void ingestData() {
+
+        client.ingestDocuments();
+
     }
 }
