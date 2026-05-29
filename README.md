@@ -4,7 +4,7 @@ A containerized Retrieval-Augmented Generation (RAG) system built with Quarkus, 
 
 ## Architecture Overview
 
-![RAG Architecture](docs/minimal-rag.png)
+![RAG Architecture](docs/naive-rag.png)
 
 - **Quarkus** for the backend orchestration API
 - **Qdrant** as the vector database
