@@ -35,27 +35,6 @@ services:
       - QDRANT__SERVICE__GRPC_PORT=6334
     restart: unless-stopped
 
-  langgraph:
-    image: python:3.12-slim
-    working_dir: /app
-    container_name: langgraph
-    networks:
-      - rag-network
-    ports:
-      - "${LANGGRAPH_PORT}:8000"
-    environment:
-      - OPENAI_API_KEY="XXX"
-    command: >
-      sh -c "
-      pip install --no-cache-dir -r requirements.txt &&
-      python -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-      "
-    volumes:
-      - ./app:/app:Z
-    depends_on:
-      - qdrant
-    restart: unless-stopped
-
   quarkus-app:
     image: registry.access.redhat.com/ubi9/openjdk-17-runtime:1.24
     working_dir: /deployments
@@ -77,5 +56,4 @@ services:
       - ./ingest:/deployments/ingest:Z
     depends_on:
       - qdrant
-      - langgraph
     restart: unless-stopped
