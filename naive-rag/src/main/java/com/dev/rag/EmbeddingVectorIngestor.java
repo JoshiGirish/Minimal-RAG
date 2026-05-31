@@ -26,6 +26,9 @@ public class EmbeddingVectorIngestor {
 	@Inject
 	EmbeddingsGeneratorClient embeddingGeneratorClient;
 
+	@Inject
+	QdrantProvider qdrantProvider;
+
 	/**
 	 * Represents a chunk of document content with metadata.
 	 */
@@ -271,7 +274,7 @@ public class EmbeddingVectorIngestor {
 		return chunks;
 	}
 
-	private static void ensureCollection(
+	private void ensureCollection(
 			QdrantClient client) throws Exception {
 
 		try {
@@ -287,8 +290,7 @@ public class EmbeddingVectorIngestor {
 			System.out.println(
 					"Creating collection...");
 
-			QdrantClientHelper.createCollectionAsync(
-					client,
+			qdrantProvider.createCollectionAsync(
 					collectionName,
 					768,
 					Distance.Cosine);

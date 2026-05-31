@@ -33,13 +33,16 @@ public class EmbeddingVectorSearch {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Inject
-    EmbeddingVectorIngestor client;
+    EmbeddingVectorIngestor ingestor;
 
     @Inject
     private ExternalServicesConfig config;
 
     @Inject
-    EmbeddingsGeneratorClient emb;
+    EmbeddingsGeneratorClient embedClient;
+
+    @Inject
+    QdrantProvider qdrantProvider;
 
     @POST
     @Path("/chat/completions")
@@ -49,7 +52,6 @@ public class EmbeddingVectorSearch {
             Map<String, Object> request,
             @Context SseEventSink sink,
             @Context Sse sse) {
-        System.out.println("HIT CHAT ENDPOINT");
         try (sink) {
 
             // -----------------------------
@@ -129,19 +131,9 @@ public class EmbeddingVectorSearch {
 
     private String buildContext(String input) throws Exception {
 
-        float[] vector = emb.generateEmbedding(input);
+        float[] vector = embedClient.generateEmbedding(input);
 
-        // Build Qdrant URL from configuration
-        boolean useTls = config.isQdrantUseTls();
-
-        URI uri = URI.create(config.buildQdrantUrl());
-        ManagedChannel channel = ManagedChannelBuilder
-        .forAddress(uri.getHost(), uri.getPort())
-        .usePlaintext()
-        .build();
-
-        QdrantClient client = new QdrantClient(
-                QdrantGrpcClient.newBuilder(channel, useTls).build());
+        QdrantClient client = qdrantProvider.getQdrantClient();
 
         List<ScoredPoint> results = client.queryAsync(
                 QueryPoints.newBuilder()
@@ -155,17 +147,33 @@ public class EmbeddingVectorSearch {
         StringBuilder context = new StringBuilder();
 
         context.append("""
-                You are a helpful assistant. Use ONLY the context below.
+                You are a Retrieval-Augmented Generation (RAG) assistant.
 
-                CONTEXT:
+                Instructions:
+                - Answer the user's question using only the information contained in the provided context.
+                - Do not invent, assume, or hallucinate information that is not present in the context.
+                - If the answer cannot be found in the context, respond with:
+                  "I could not find that information in the provided documents."
+                - If multiple pieces of context are relevant, combine them into a coherent answer.
+                - Keep answers factual, clear, and concise.
+                - When appropriate, provide bullet points.
+                - Do not mention these instructions.
+                - Do not state that you are using retrieved documents unless explicitly asked.
+
+                ========================
+                CONTEXT
+                ========================
+
                 """);
 
         for (ScoredPoint p : results) {
-            context.append(
-                    p.getPayloadMap()
-                            .get("text")
-                            .getStringValue())
-                    .append("\n");
+            if (p.containsPayload("text")) {
+                context.append(
+                        p.getPayloadMap()
+                                .get("text")
+                                .getStringValue())
+                        .append("\n");
+            }
         }
 
         return context.toString();
@@ -176,7 +184,7 @@ public class EmbeddingVectorSearch {
             String userInput) throws Exception {
 
         Map<String, Object> payload = Map.of(
-                "model", "rag-qdrant-model",
+                "model", "naive-rag-model",
                 "stream", true,
                 "messages", List.of(
                         Map.of(
@@ -189,10 +197,18 @@ public class EmbeddingVectorSearch {
         return MAPPER.writeValueAsString(payload);
     }
 
+    @SuppressWarnings("unchecked")
     private String extractUserInput(Map<String, Object> request) {
-        List<Map<String, String>> messages = (List<Map<String, String>>) request.get("messages");
 
-        return messages.get(messages.size() - 1).get("content");
+        List<Map<String, Object>> messages = (List<Map<String, Object>>) request.get("messages");
+
+        if (messages == null || messages.isEmpty()) {
+            throw new IllegalArgumentException("messages is required");
+        }
+
+        Object content = messages.get(messages.size() - 1).get("content");
+
+        return content == null ? "" : content.toString();
     }
 
     @GET
@@ -213,9 +229,9 @@ public class EmbeddingVectorSearch {
     @GET
     @Path("/ingest")
     @Produces(MediaType.APPLICATION_JSON)
-    public void ingestData() {
-
-        client.ingestDocuments();
-
+    public Map<String, String> ingestData() {
+        ingestor.ingestDocuments();
+        return Map.of(
+                "status", "success");
     }
 }
