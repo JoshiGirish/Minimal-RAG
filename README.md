@@ -12,7 +12,7 @@ A containerized Retrieval-Augmented Generation (RAG) system built with Quarkus, 
 - **OpenWebUI** as the chat frontend
 - **Apache Tika** for document parsing
 
-T### 1. Clone the Repository
+### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
@@ -87,20 +87,3 @@ http://localhost:3000
 - 💬 Chat with your documents
 - 🔍 Search across ingested content
 - 📊 View conversation history
-
----
-
-## Architecture
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Documents  │────▶│  Quarkus    │────▶│   Qdrant     │
-│  (Ingest)   │     │  App        │     │  Vector      │
-└─────────────┘     │  (Tika)     │     │  Store        │
-                    └─────────────┘     └─────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │  OpenWebUI  │
-                    │  (RAG UI)   │
-                    └─────────────┘
